@@ -140,6 +140,12 @@ from kopf.utilities.piggybacking import (
     login_via_client,
 )
 
+from kopf.resources import (
+    Resource,
+    Spec,
+    Status,
+)
+
 __all__ = [
     'on', 'lifecycles', 'register', 'execute', 'daemon', 'timer',
     'configure', 'LogFormat',

@@ -49,5 +49,6 @@ setup(
         'aiohttp<4.0.0',
         'aiojobs',
         'pykube-ng>=0.27',  # used only for config parsing
+        'pydantic',
     ],
 )
