@@ -1,5 +1,7 @@
 import functools
+import inspect
 import types
+import typing
 
 import kopf
 
@@ -74,7 +76,24 @@ class DecoratorProxy():
                     return functools.partial(decorator, __args=all_args, __kwargs=kwargs)
 
                 handler = kopf_decorator(*d_args, **d_kwargs)
-                return handler(func)
+
+                signature = inspect.signature(func)
+                type_hints = typing.get_type_hints(func)
+                #print('     signature: %s' % signature)
+                #print('     type_hints: %s' % type_hints)
+
+                @functools.wraps(func)
+                def wrapper(*args, **kwargs):
+                    # Wrapper function that parses pydantic models based on
+                    # typing hints.
+                    #print('     wrapper: %s; %s' % (args, kwargs))
+                    for argument_name, argument_type in type_hints.items():
+                        if issubclass(argument_type, BaseModel):
+                            _object = kwargs[argument_name]
+                            kwargs[argument_name] = argument_type.parse_obj(_object)
+                    return func(*args, **kwargs)
+                return handler(wrapper)
+
             return decorator
 
 
