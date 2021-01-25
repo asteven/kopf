@@ -54,15 +54,15 @@ class DecoratorProxy():
         """
         if name in self.__kopf_decorators__:
             kopf_decorator = getattr(kopf.on, name)
-            def wrapper(*args, **kwargs):
+            def decorator(*args, **kwargs):
                 if len(args) == 1 and isinstance(args[0], types.FunctionType):
                     # Used as:
                     # @SomeResource.on.create
                     # def some_function(*args, **kwargs):
                     #     pass
                     func = args[0]
-                    handler = kopf_decorator(*self.args)
-                    return handler(func)
+                    d_args = kwargs.get('__args', self.args)
+                    d_kwargs = kwargs.get('__kwargs', {})
                 else:
                     # Used as:
                     # @SomeResource.on.create(when=some_filter, labels=...)
@@ -71,9 +71,11 @@ class DecoratorProxy():
 
                     # Inject our own args to tell kopf about our resource.
                     all_args = self.args + args
-                    handler = kopf_decorator(*all_args, **kwargs)
-                    return handler
-            return wrapper
+                    return functools.partial(decorator, __args=all_args, __kwargs=kwargs)
+
+                handler = kopf_decorator(*d_args, **d_kwargs)
+                return handler(func)
+            return decorator
 
 
 
