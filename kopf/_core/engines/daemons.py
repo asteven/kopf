@@ -33,7 +33,7 @@ from kopf._cogs.configs import configuration
 from kopf._cogs.helpers import typedefs
 from kopf._cogs.structs import bodies, ids, patches
 from kopf._core.actions import application, execution, lifecycles, loggers, progression
-from kopf._core.intents import causes, handlers as handlers_, stoppers
+from kopf._core.intents import causes, registries, handlers as handlers_, stoppers
 
 
 @dataclasses.dataclass(frozen=True)
@@ -471,13 +471,17 @@ async def _daemon(
     state = progression.State.from_scratch().with_handlers([handler])
     while not stopper.is_set() and not state.done:
 
-        outcomes = await execution.execute_handlers_once(
-            lifecycle=lifecycles.all_at_once,  # there is only one anyway
-            settings=settings,
-            handlers=[handler],
-            cause=cause,
-            state=state,
-        )
+        if registries.match(handler=handler, cause=cause):
+            outcomes = await execution.execute_handlers_once(
+                lifecycle=lifecycles.all_at_once,  # there is only one anyway
+                settings=settings,
+                handlers=[handler],
+                cause=cause,
+                state=state,
+            )
+        else:
+            outcomes = {handler.id: execution.Outcome(final=True)}
+
         state = state.with_outcomes(outcomes)
         progression.deliver_results(outcomes=outcomes, patch=patch)
         await application.patch_and_check(
@@ -558,15 +562,20 @@ async def _timer(
         started = time.monotonic()
 
         # Execute the handler as usually, in-memory, but handle its outcome on every attempt.
-        outcomes = await execution.execute_handlers_once(
-            lifecycle=lifecycles.all_at_once,  # there is only one anyway
-            settings=settings,
-            handlers=[handler],
-            cause=cause,
-            state=state,
-        )
+        if registries.match(handler=handler, cause=cause):
+            outcomes = await execution.execute_handlers_once(
+                lifecycle=lifecycles.all_at_once,  # there is only one anyway
+                settings=settings,
+                handlers=[handler],
+                cause=cause,
+                state=state,
+            )
+        else:
+            outcomes = {handler.id: execution.Outcome(final=True)}
+
         state = state.with_outcomes(outcomes)
         progression.deliver_results(outcomes=outcomes, patch=patch)
+
         await application.patch_and_check(
             settings=settings,
             resource=resource,
